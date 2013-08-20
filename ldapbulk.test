@@ -1,0 +1,43 @@
+<?php
+/**
+ * @file
+ * Tests for the LDAP Bulk Searcher module
+ */
+
+class LdapBulkTestCase extends DrupalWebTestCase{
+  public static function getInfo(){
+    return array(
+      'name' => 'LDAP Bulk Searcher module functionality',
+      'description' => 'Tests hooks in the LDAP Bulk Searcher module',
+      'group' => 'LDAP Bulk Searcher',
+    ); 
+  }
+  public function setUp(){
+    parent::setUp('ldapbulk');
+
+    
+    $admin = $this->drupalCreateUser(array('administer blocks', 'administer nodes'));
+    $this->drupalLogin($admin);
+    
+    $edit = array(
+      'blocks[ldapbulk_ldapbulk][region]' => 'content',
+    );
+    $this->drupalPost('admin/structure/block', $edit, t('Save blocks'));
+  }
+  
+  public function testQuery(){
+  	$emails = 'sam5667@psu.edu';
+  	$items = module_invoke('ldapbulk', 'query', $emails);
+  	
+  	$this->assertEqual('sam5667', $items[0][0], t('Query results correct.'));
+  }
+  
+  public function testSearchProcess(){
+  	$edit = array(
+  		'ldapbulk_search_ids' => 'sam5667@psu.edu',
+  	);
+  	$this->drupalPost('', $edit, t('Search'));
+  	$this->assertText('sam5667', t('Successful search response in table.'));
+  }
+
+}

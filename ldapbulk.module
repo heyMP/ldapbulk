@@ -1,0 +1,381 @@
+<?php
+/**
+ * @file
+ * A block module that searches LDAP given a list of user emails.
+ *
+ * See README.txt
+ */
+			
+ 	
+/**
+ * Implements hook_enable() called when the module is enabled.
+ */
+function ldapbulk_enable() {
+
+  /** Set defaults for user configurable variables.
+    *   Forces variables to be set after a fresh module installation. Otherwise, they are
+    *   only set once the configuration page is viewed AND saved.
+    */ 
+
+  //variable_set('ldapbulk_server', $DEFAULT_SERVER);
+  //variable_set('ldapbulk_tree', $DEFAULT_TREE);
+  variable_set('ldapbulk_max', '150');
+  variable_set('ldapbulk_search_key_display', 'email address');
+  
+  variable_set('ldapbulk_display_header', 1);
+  variable_set('ldapbulk_display_infotext', 'Search LDAP by entering email addresses in the search box.');
+} 	
+
+
+
+/**
+ * Implements hook_help.
+ *
+ * Displays help and module information.
+ *
+ * @param path 
+ *   Which path of the site we're using to display help
+ * @param arg 
+ *   Array that holds the current path as returned from arg() function
+ */
+function ldapbulk_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#ldapbulk":
+      return '<p>' . t("Displays LDAP Bulk Searcher") . '</p>';
+      break;
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function ldapbulk_menu() {
+  $items = array();
+
+  $items['admin/config/content/ldapbulk'] = array(
+    'title' => 'LDAP Bulk Searcher',
+    'description' => 'Configuration for LDAP Bulk Searcher module',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ldapbulk_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback: LDAP Bulk Searcher settings
+ *
+ * Generates admin form to configure this module
+ *
+ * @see ldapbulk_menu()
+ */
+function ldapbulk_form($form, &$form_state) {
+  global $DEFAULT_SERVER, $DEFAULT_TREE;
+  
+  $form['ldap_settings'] = array(
+  	'#type' => 'fieldset',
+  	'#title' => t('LDAP Server Settings'),
+  	);
+
+  $form['ldap_settings']['ldapbulk_server'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Server URL'),
+    '#default_value' => variable_get('ldapbulk_server'),
+    '#description' => t('LDAP Server URL.'),
+    '#required' => TRUE,
+    );
+  
+  $form['ldap_settings']['ldapbulk_tree'] = array(
+  	'#type' => 'textfield',
+  	'#title' => t('Tree'),
+  	'#default_value' => variable_get('ldapbulk_tree'),
+  	'#description' => t('LDAP Tree.'),
+  	'#required' => TRUE,
+    );
+  
+  $form['ldap_settings']['ldapbulk_search_key'] = array(
+  	'#type' => 'textfield',
+  	'#title' => t('Search Key - LDAP Key'),
+  	'#default_value' => variable_get('ldapbulk_search_key'),
+  	'#description' => t('Field to use when searching LDAP with data entered in search box. (Ex: cn, email, etc.)'),
+  	'#required' => TRUE,
+    );
+ 
+  $form['ldap_settings']['ldapbulk_search_key_display'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search Key - Human Display'),
+    '#default_value' => variable_get('ldapbulk_search_key_display'),
+    '#description' => t('Human display of the search key. Used on the Search form. (Ex: Email Address, Name, etc.)'),
+    '#required' => TRUE,
+    );
+    
+  $form['ldap_settings']['ldapbulk_max'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum Search Bucket Size'),
+    '#default_value' => variable_get('ldapbulk_max'),
+    '#size' => 3,
+    '#maxlength' => 3,
+    '#description' => t('The maximum number ids that can be sent to the LDAP server in one bucket request. Setting this number close to LDAP servers max will allow for fastest processing. Default: 150'),
+    '#required' => TRUE,
+    );
+  
+  $form['ldap_display'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Form Display Settings'),
+    );
+    
+  $form['ldap_display']['ldapbulk_display_header'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display header'),
+    '#default_value' => variable_get('ldapbulk_display_header'),
+    );
+    
+  $form['ldap_display']['ldapbulk_display_infotext'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Form instruction text'),
+    '#description' => t('Text to display above the form to instruct the user.'),
+    '#default_value' => variable_get('ldapbulk_display_infotext'),
+    );
+    
+  $form['ldap_display']['ldapbulk_display_fields'] = array(
+    '#type' => 'textfield',
+    '#title' => t('List of Display Fields'),
+    '#description' => t('Fields to return from LDAP and display or download. Must be comma-separated.'),
+    '#default_value' => variable_get('ldapbulk_display_fields'),
+    );
+     
+    
+  return system_settings_form($form);
+}
+
+function ldapbulk_search_form($form, &$form_state) {
+  $skey = strtolower(variable_get('ldapbulk_search_key_display'));
+  
+  $form['ldapbulk_search_infotext'] = array(
+    '#markup' => variable_get('ldapbulk_display_infotext'),
+    );
+
+  $form['ldapbulk_search_ids'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Enter '. $skey .' to search:'),
+    '#description' => t('Enter '. $skey .'(s) to search for. Separate with commas.'),
+    '#required' => TRUE,
+    );
+
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+    );
+  $form['actions']['download'] = array(
+    '#type' => 'submit',
+    '#value' => t('Download CSV'),
+    );
+  
+  return $form;
+}
+
+/**
+ * Implements validation from the Form API.
+ * 
+ * @param $form
+ *   A structured array containing the elements and properties of the form.
+ * @param $form_state
+ *   An array that stores information about the form's current state 
+ *   during processing.
+ */
+function ldapbulk_form_validate($form, &$form_state){
+  $max_num = $form_state['values']['ldapbulk_max'];
+  if (!is_numeric($max_num)){
+    form_set_error('ldapbulk_max', t('You must enter a number for the maximum search bucket size.'));
+  }
+  else if ($max_num <= 0){
+    form_set_error('ldapbulk_max', t('Maximum search bucket size must be greater than 0.'));
+  }
+}
+
+function ldapbulk_search_form_validate($form, &$form_state){
+  //Nothing needs validating yet.
+}
+
+function ldapbulk_search_form_submit(&$form, &$form_state){
+  //dpm($form_state['values']['op']);
+  $form_state['redirect'] = FALSE;
+  
+  $ids = $form_state['values']['ldapbulk_search_ids'];
+  
+  $ldap_results = ldapbulk_query($ids);
+  
+  switch (strtolower($form_state['values']['op'])) {
+    case 'search':
+	  if (count($ldap_results) == 0) {
+		$result = "<h2>No results found.</h2>";
+	  } else {
+		$result = theme('table', array(
+									'header' => array_merge(array('uid'), explode(",", variable_get('ldapbulk_display_fields'))),
+									'rows' => $ldap_results
+									));
+	  }
+  
+	  $form['resultsinfo'] = array(
+		'#weight' => 100,
+		'#markup' => '<div>'. $result .'</div>',
+		);
+  
+	  return $form;
+	  break;
+	case 'download csv':
+	  _ldapbulk_streamcsv($ldap_results);
+	  break;
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function ldapbulk_block_info() {
+  $blocks['ldapbulk'] = array(
+    // The name that will appear in the block list.
+    'info' => t('LDAP Bulk Search'),
+    // Default setting.
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function ldapbulk_block_view($delta = '') {
+  switch ($delta) {
+    case 'ldapbulk':
+      if (variable_get('ldapbulk_display_header'))
+      	$block['subject'] = t('LDAP Bulk Search');
+      else
+        $block['subject'] = '<none>';
+      
+      if (user_access('access content')) {
+      	$block['content'] = drupal_get_form('ldapbulk_search_form');
+      }
+    }
+    
+  return $block;
+}
+
+function ldapbulk_query($email_addresses) {	
+		// config
+		$ldapserver = variable_get('ldapbulk_server');
+		$ldaptree    = variable_get('ldapbulk_tree');
+		$LDAP_SIZE = variable_get('ldapbulk_max');
+		$ldap_search_key = variable_get('ldapbulk_search_key');
+		$ldap_display_fields = explode(',', str_replace( " ", "", variable_get('ldapbulk_display_fields')));
+		
+		$users_input = $email_addresses;
+
+		//Remove any spaces from input
+		$users_input = str_replace( " ", "", $users_input);
+
+		//Split at commas
+		$users = explode(",", $users_input);
+
+		// connect 
+		$ldapconn = ldap_connect($ldapserver) or die("Could not connect to LDAP server.");
+
+		if($ldapconn) {
+			// binding to ldap server
+			$ldapbind = ldap_bind($ldapconn) or die ("Error trying to bind: ".ldap_error($ldapconn));
+			// verify binding
+			if ($ldapbind) {
+				
+				//Function to cleanly access field data from LDAP response. Allows setting default.
+				function getfield($array, $field, $default="") {
+					if (isset($array[$field])) {
+						return $array[$field][0];
+					}
+	
+					return $default;
+				}
+				
+				//Limit each search size to avoid LDAP's search limit
+				foreach (array_chunk( $users, $LDAP_SIZE ) as $users_chunk) 
+				{
+				
+					if( count($users_chunk) == 1) {
+						//Only one ID
+						$search_users = "(". $ldap_search_key ."=".$users_chunk[0].")";
+					} else {
+						//Multiple IDs. Add OR operator
+						$search_users = "(| ";
+						foreach ($users_chunk as $u) {
+							$search_users .= "(". $ldap_search_key ."=".$u.") ";
+						}
+						$search_users .= " )";
+					}
+					$result = ldap_search($ldapconn,$ldaptree, $search_users) or die ("Error in search query: ".ldap_error($ldapconn));
+					$data = ldap_get_entries($ldapconn, $result);
+
+					// iterate over array and print data for each entry
+					$outarray_total = array();
+					for ($i=0; $i<$data["count"]; $i++) {
+						$d = $data[$i];
+						
+						$outarray = array(
+							$d["uid"][0]
+							);
+						
+						foreach ($ldap_display_fields as $field) {
+							$outarray[] = getfield($d, $field);
+						}
+			
+						//echo str_putcsv($outarray) . PHP_EOL;
+						$outarray_total[] = $outarray;
+					}
+				
+				} //end foreach chunk
+			} else {
+				echo "LDAP bind failed...";
+			}
+
+		}
+
+		// all done? clean up
+		ldap_close($ldapconn);
+		
+		return $outarray_total;
+}
+
+if(!function_exists('str_putcsv'))
+{
+	function str_putcsv($input, $delimiter = ',', $enclosure = '"')
+	{
+		// Open a memory "file" for read/write...
+		$fp = fopen('php://temp', 'r+');
+		// ... write the $input array to the "file" using fputcsv()...
+		fputcsv($fp, $input, $delimiter, $enclosure);
+		// ... rewind the "file" so we can read what we just wrote...
+		rewind($fp);
+		// ... read the entire line into a variable...
+		$data = fread($fp, 1048576);
+		// ... close the "file"...
+		fclose($fp);
+		// ... and return the $data to the caller, with the trailing newline from fgets() removed.
+		return rtrim($data, "\n");
+	}
+ }
+
+function _ldapbulk_streamcsv($ldap_results){
+  drupal_add_http_header('Pragma', 'public');
+  drupal_add_http_header('Expires', '0');
+  drupal_add_http_header('Cache-Control', 'must-revalidate, post-check=0, pre-check=0');
+  drupal_add_http_header('Content-Type', 'application/octet-stream');
+  drupal_add_http_header('Content-Disposition', 'attachment; filename=ldapresults.csv;');
+  drupal_add_http_header('Content-Transfer-Encoding', 'binary');
+  drupal_add_http_header('Content-Description', 'File Transfer');
+  
+  for ($i=0; $i<count($ldap_results); $i++) {
+  	echo str_putcsv($ldap_results[$i]) . PHP_EOL;
+  }
+  drupal_exit();
+}

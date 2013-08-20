@@ -1,0 +1,7 @@
+name = LDAP Bulk Searcher
+description = A block module that searches an LDAP Server.
+version = 1.0
+core = 7.x
+
+configure = admin/config/content/ldapbulk
+files[] = ldapbulk.test

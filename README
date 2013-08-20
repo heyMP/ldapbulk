@@ -1,0 +1,13 @@
+README.txt
+==========
+
+Updated: August 2013
+
+A module containing functions to search an LDAP Server given a list of user emails.
+The block view displays returned information in a table. The same query can easily 
+be run and downloaded as a Comma-Separated Values (CSV) file.
+
+
+AUTHOR
+======
+- Sean Meadows <sam5667 AT psu DOT edu> <designed27 AT gmail DOT com>
