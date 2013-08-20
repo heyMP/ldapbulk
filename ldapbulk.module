@@ -3,7 +3,7 @@
  * @file
  * A block module that searches LDAP given a list of user emails.
  *
- * See README.txt
+ * See README
  */
 			
  	
@@ -41,7 +41,7 @@ function ldapbulk_enable() {
 function ldapbulk_help($path, $arg) {
   switch ($path) {
     case "admin/help#ldapbulk":
-      return '<p>' . t("Displays LDAP Bulk Searcher") . '</p>';
+      return '<p>' . t("Displays LDAP Bulk Searcher.") . '</p><p>' . t("Ensure you set configuration settings before using.") . '</p><br /><br />';
       break;
   }
 }
