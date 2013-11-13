@@ -17,8 +17,12 @@ function ldapbulk_enable() {
     *   only set once the configuration page is viewed AND saved.
     */ 
 
-  //variable_set('ldapbulk_server', $DEFAULT_SERVER);
-  //variable_set('ldapbulk_tree', $DEFAULT_TREE);
+  /*********************************************/
+  /*** PASTE DEFAULT VARIABLE OVERRIDES HERE ***/
+  /***       See README for more info        ***/
+  /*********************************************/
+  
+  
   variable_set('ldapbulk_max', '150');
   variable_set('ldapbulk_search_key_display', 'email address');
   
