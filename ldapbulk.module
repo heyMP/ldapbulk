@@ -298,6 +298,7 @@ function ldapbulk_query($email_addresses) {
 					return $default;
 				}
 				
+				$outarray_chunk_combined = array();
 				//Limit each search size to avoid LDAP's search limit
 				foreach (array_chunk( $users, $LDAP_SIZE ) as $users_chunk) 
 				{
@@ -332,8 +333,9 @@ function ldapbulk_query($email_addresses) {
 						//echo str_putcsv($outarray) . PHP_EOL;
 						$outarray_total[] = $outarray;
 					}
-				
+					$outarray_chunk_combined = array_merge($outarray_chunk_combined, $outarray_total);
 				} //end foreach chunk
+				
 			} else {
 				echo "LDAP bind failed...";
 			}
@@ -343,7 +345,7 @@ function ldapbulk_query($email_addresses) {
 		// all done? clean up
 		ldap_close($ldapconn);
 		
-		return $outarray_total;
+		return $outarray_chunk_combined;
 }
 
 if(!function_exists('str_putcsv'))
