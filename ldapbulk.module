@@ -292,11 +292,13 @@ function ldapbulk_query($query, $ldap_search_key = NULL, $ldap_display_fields = 
 
 		$users_input = $query;
 
-		//Remove any spaces from input
-		$users_input = str_replace( " ", "", $users_input);
-
-		//Split at commas
-		$users = explode(",", $users_input);
+		// Split at commas
+		$users = explode(PHP_EOL, $users_input);
+    // Add multiple filters
+    foreach ($users as $key => $user) {
+      $filters = explode(",", $user);
+      $users[$key] = $filters;
+    }
 
 		// connect
 		$ldapconn = ldap_connect($ldapserver) or die("Could not connect to LDAP server.");
@@ -312,26 +314,25 @@ function ldapbulk_query($query, $ldap_search_key = NULL, $ldap_display_fields = 
 					if (isset($array[$field])) {
 						return $array[$field][0];
 					}
-
 					return $default;
 				}
 
 				$outarray_chunk_combined = array();
 				//Limit each search size to avoid LDAP's search limit
-				foreach (array_chunk( $users, $LDAP_SIZE ) as $users_chunk) 
+				foreach (array_chunk( $users, $LDAP_SIZE ) as $users_chunk)
 				{
-				
-					if( count($users_chunk) == 1) {
-						//Only one ID
-						$search_users = "(". $ldap_search_key ."=".$users_chunk[0].")";
-					} else {
-						//Multiple IDs. Add OR operator
-						$search_users = "(| ";
-						foreach ($users_chunk as $u) {
-							$search_users .= "(". $ldap_search_key ."=".$u.") ";
-						}
-						$search_users .= " )";
+          // Put together the LDAP Query
+					$search_users = "(|";
+					foreach ($users_chunk as $user) {
+						$search_users .= "(&";
+            foreach ($user as $filter) {
+              $search_users .= "(". trim($filter) .")";
+            }
+            $search_users .= ")";
 					}
+					$search_users .= ")";
+
+          // Send that query to search ldap
 					$result = ldap_search($ldapconn,$ldaptree, $search_users) or die ("Error in search query: ".ldap_error($ldapconn));
 					$data = ldap_get_entries($ldapconn, $result);
 
